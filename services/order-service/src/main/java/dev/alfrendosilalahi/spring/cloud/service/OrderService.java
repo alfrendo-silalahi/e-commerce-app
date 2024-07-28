@@ -1,12 +1,16 @@
 package dev.alfrendosilalahi.spring.cloud.service;
 
-import dev.alfrendosilalahi.spring.cloud.exception.BusinessException;
-import dev.alfrendosilalahi.spring.cloud.repository.OrderRepository;
-import lombok.RequiredArgsConstructor;
 import dev.alfrendosilalahi.spring.cloud.dto.CustomerResponseDTO;
 import dev.alfrendosilalahi.spring.cloud.dto.OrderRequestDTO;
+import dev.alfrendosilalahi.spring.cloud.dto.PurchaseRequestDTO;
+import dev.alfrendosilalahi.spring.cloud.exception.BusinessException;
 import dev.alfrendosilalahi.spring.cloud.feign.CustomerClient;
+import dev.alfrendosilalahi.spring.cloud.mapper.OrderMapper;
+import dev.alfrendosilalahi.spring.cloud.model.Order;
+import dev.alfrendosilalahi.spring.cloud.orderline.OrderLineRequest;
+import dev.alfrendosilalahi.spring.cloud.repository.OrderRepository;
 import dev.alfrendosilalahi.spring.cloud.rest.ProductClient;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +24,10 @@ public class OrderService implements IOrderService {
 
     private final OrderRepository orderRepository;
 
+    private final OrderMapper orderMapper;
+
+    private final OrderLineService orderLineService;
+
     @Override
     @Transactional
     public Integer createOrder(OrderRequestDTO orderRequestDTO) {
@@ -31,13 +39,25 @@ public class OrderService implements IOrderService {
         productClient.purchaseProducts(orderRequestDTO.products());
 
         // persist order
-
+        Order order = orderRepository.save(orderMapper.mapOrderRequestDTOToOrder(orderRequestDTO));
 
         // persist order lines
+        for (PurchaseRequestDTO purchaseRequestDTO : orderRequestDTO.products()) {
+            orderLineService.saveOrderLine(
+                    new OrderLineRequest(
+                            null,
+                            order.getId(),
+                            purchaseRequestDTO.productId(),
+                            purchaseRequestDTO.quantity()
+                    )
+            );
+        }
 
-        // start payment process
+        // TODO: start payment process
 
-        // send the order confirmation --> notification-service (kafka)
+        // TODO: send the order confirmation --> notification-service (kafka)
+
+        return null;
     }
 
 }
